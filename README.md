@@ -14,7 +14,7 @@ This project implements a Hidden Markov Model (HMM) for visual attention as part
 
 ## Requirements
 
-Install the required Python packages before running the code:.
+Install the required Python packages before running the code:
 
 ### Standard library
 
