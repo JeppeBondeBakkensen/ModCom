@@ -9,8 +9,6 @@
 where Z_{t,1}, ..., Z_{t,n} are conditionally independent given C_t.
 """
 
-from threading import local
-
 import numpy as np
 from scipy.stats import poisson
 
@@ -146,7 +144,7 @@ class HiddenMarkovModel:
         posterior_c /= posterior_c.sum(axis=1, keepdims=True)
 
         # P(Z_{t,i} = 1 | X)
-        posterior_z = self._posterior_Z(X, psi, forward, backward)
+        posterior_z = self._posterior_Z(X, local_evidence, forward, backward)
 
         return posterior_c, posterior_z
 
@@ -162,7 +160,7 @@ class HiddenMarkovModel:
             term_z0 = (1 - self.prob_z1_given_c[c]) * prob_X_given_z0
             term_z1 = self.prob_z1_given_c[c] * prob_X_given_z1
 
-            #product of all messages from Z to C
+            # product of all messages from Z to C
             ev[c] = np.prod(term_z1 + term_z0)  # (T, )
         return ev  # (T, 3)
 
@@ -176,7 +174,7 @@ class HiddenMarkovModel:
 
         # Message/update from C_{t-1} to C_t * local evidence at t:
         for t in range(1, self.T):
-            forward[t] = local_evidence[t] * (forward[t-1] @ self.Gamma)
+            forward[t] = local_evidence[t] * (forward[t - 1] @ self.Gamma)
             forward[t] /= forward[t].sum()
         return forward
 
