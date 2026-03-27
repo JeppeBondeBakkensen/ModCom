@@ -66,17 +66,17 @@ def brute_force_inference(X, HMM):
     # 3. Generate all 3^T possible state sequences
     # For T=3, this is 27 sequences; for T=10, it's 59,049
     all_paths = list(product([0, 1, 2], repeat=T))
-    path_probabilities = np.zeros(len(all_paths))
+    path_probabilities = []
 
     for path in all_paths:
-        # Initial probability: P(c1) * P(X1 | c1)
         prob = prior[path[0]] * local_ev[0, path[0]]
 
-        # Multiply by transitions and evidence for the rest of the path
         for t in range(1, T):
             prob *= HMM.Gamma[path[t - 1], path[t]] * local_ev[t, path[t]]
 
         path_probabilities.append(prob)
+
+    path_probabilities = np.array(path_probabilities)
 
     total_evidence = np.sum(path_probabilities)
 
