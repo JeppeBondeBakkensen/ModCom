@@ -1,3 +1,5 @@
+from itertools import product
+
 import numpy as np
 
 from inference import HiddenMarkovModel
@@ -52,12 +54,58 @@ def test_inference_calibration(HMM, T, n, num_trials=1000):
         print("\nResult: WARNING. Significant bias detected. Check Gamma or Local Evidence.")
 
 
-def brute_force(HMM, T, n, num_trails=1000):
-    pass
+def brute_force_inference(X, HMM):
+    T, n = X.shape
+    # 1. Setup Transition Matrix and Prior
+    prior = np.array([0, 0, 1])  # P(C1=2) = 1
+
+    # 2. Pre-calculate Local Evidence P(X_t | C_t) for all t
+    # Using the function we wrote earlier
+    local_ev = np.array([HMM._local_evidence(X[t]) for t in range(T)])
+
+    # 3. Generate all 3^T possible state sequences
+    # For T=3, this is 27 sequences; for T=10, it's 59,049
+    all_paths = list(product([0, 1, 2], repeat=T))
+    path_probabilities = np.zeros(len(all_paths))
+
+    for path in all_paths:
+        # Initial probability: P(c1) * P(X1 | c1)
+        prob = prior[path[0]] * local_ev[0, path[0]]
+
+        # Multiply by transitions and evidence for the rest of the path
+        for t in range(1, T):
+            prob *= HMM.Gamma[path[t - 1], path[t]] * local_ev[t, path[t]]
+
+        path_probabilities.append(prob)
+
+    total_evidence = np.sum(path_probabilities)
+
+    # 4. Compute Marginal P(Ct = c | X)
+    # Sum the probabilities of all paths where Ct equals c
+    brute_posterior_c = np.zeros((T, 3))
+    for t in range(T):
+        for c in range(3):
+            # Sum prob of paths where the state at time t is c
+            mask = [path[t] == c for path in all_paths]
+            brute_posterior_c[t, c] = np.sum(path_probabilities[mask]) / total_evidence
+
+    return brute_posterior_c
 
 
 if __name__ == "__main__":
     T, n = 3, 2
     params = {"alpha": 0.9, "beta": 0.2, "gamma": 0.1, "lam0": 1, "lam1": 5}
     HMM = HiddenMarkovModel(**params)
+    _, _, X = HMM.simulate(T, n)
+
     test_inference_calibration(HMM, T, n)
+
+    # Get results from both methods
+    post_fb, _ = HMM.inference(X)
+    post_bf = brute_force_inference(X, HMM)
+
+    # Compare
+    is_correct = np.allclose(post_fb, post_bf)
+    print(f"Brute Force Match: {is_correct}")
+    if not is_correct:
+        print("Difference Max:", np.max(np.abs(post_fb - post_bf)))
