@@ -9,6 +9,8 @@
 where Z_{t,1}, ..., Z_{t,n} are conditionally independent given C_t.
 """
 
+from threading import local
+
 import numpy as np
 from scipy.stats import poisson
 
@@ -126,7 +128,7 @@ class HiddenMarkovModel:
     # ──────────────────────────────────────────────────────────────────
 
     def inference(self, X):
-        """Compute P(C_t | X) and P(Z_{t,i} = 1 | X) via forward-backward.
+        """Compute P(C_t | X) and P(Z_{t,i} = 1 | X)
 
         Returns
         -------
@@ -135,9 +137,9 @@ class HiddenMarkovModel:
         """
         self.T, self.n = X.shape
 
-        psi = np.array([self._local_evidence(X[t]) for t in range(self.T)])  # (T, 3)
-        forward = self._forward_pass(psi)
-        backward = self._backward_pass(psi)
+        local_evidence = np.array([self._local_evidence(X[t]) for t in range(self.T)])  # (T, 3)
+        forward = self._forward_pass(local_evidence)
+        backward = self._backward_pass(local_evidence)
 
         # P(C_t = c | X) ∝ forward_t(c) * backward_t(c)
         posterior_c = forward * backward
@@ -148,41 +150,37 @@ class HiddenMarkovModel:
 
         return posterior_c, posterior_z
 
-    def _local_evidence(self, X):
-        """Compute the local evidence ψ_t(c) = P(X_t | C^(t) = c) for all t"""
-        prob_X_given_z0 = poisson.pmf(X, self.lam0)  # P(X^(t,i) | Z=0)
-        prob_X_given_z1 = poisson.pmf(X, self.lam1)  # P(X^(t,i) | Z=1)
+    def _local_evidence(self, X_t):
+        """Compute the  product of messages from emission cliques at t to clique t"""
+        prob_X_given_z0 = poisson.pmf(X_t, self.lam0)  # P(X_(t,i) | Z=0)
+        prob_X_given_z1 = poisson.pmf(X_t, self.lam1)  # P(X_(t,i) | Z=1)
 
-        psi = np.ones(3)  # (T, 3)
+        ev = np.ones(3)  # (T, 3)
 
         for c in range(3):
             # Σ_z P(X^(t,i)|Z=z) · P(Z=z|C=c)
             term_z0 = (1 - self.prob_z1_given_c[c]) * prob_X_given_z0
             term_z1 = self.prob_z1_given_c[c] * prob_X_given_z1
 
-            # ψ_t(c) = ∏_i [ term_z1_i + term_z0_i ]
-            psi[c] = np.prod(term_z1 + term_z0)  # (T, )
-        return psi  # (T, 3)
+            #product of all messages from Z to C
+            ev[c] = np.prod(term_z1 + term_z0)  # (T, )
+        return ev  # (T, 3)
 
-    def _forward_pass(self, psi):
-        """Compute the normalized forward messages delta_t(c) = P(C^(t) = c | X^(1:t)) for all t"""
-        delta_fwd = np.zeros((self.T, 3))
+    def _forward_pass(self, local_evidence):
+        """Compute the normalized product of all messages going into clique C_t:"""
+        forward = np.zeros((self.T, 3))
         prior = np.array([0.0, 0.0, 1.0])
 
-        # delta_{1->2}(c_1) = P(C_1=c_1) * psi_1(c_1)
-        delta_fwd[0] = prior * psi[0]
-        delta_fwd[0] /= delta_fwd[0].sum()  # Normalize
+        forward[0] = prior * local_evidence[0]
+        forward[0] /= forward[0].sum()  # Normalize
 
-        # Message/update:
-        # psi_t(C_t) = The likelihood of the new observation 𝑋_t ​ for each possible state C_t ​
-        # self.Gamma.T @ delta_fwd[t - 1] = The prior/predicted probability of each state C_t ​ before seeing X_t ​
-        # delta_{t->t+1}(C_t) = psi_t(C_t) * sum_{C_{t-1}} P(C_t | C_{t-1}) delta_{t-1->t}(C_{t-1})
+        # Message/update from C_{t-1} to C_t * local evidence at t:
         for t in range(1, self.T):
-            delta_fwd[t] = psi[t] * (self.Gamma.T @ delta_fwd[t - 1])
-            delta_fwd[t] /= delta_fwd[t].sum()
-        return delta_fwd
+            forward[t] = local_evidence[t] * (forward[t-1] @ self.Gamma)
+            forward[t] /= forward[t].sum()
+        return forward
 
-    def _backward_pass(self, psi):
+    def _backward_pass(self, local_evidence):
         """Compute the normalized backward messages
         beta_t(c_t) ∝ P(X_{t+1:T} | C_t = c_t) for all t
         """
@@ -195,7 +193,7 @@ class HiddenMarkovModel:
         for t in range(self.T - 2, -1, -1):
             # Backward update:
             # beta_t(C_t) = sum_{C_{t+1}} P(C_{t+1} | C_t) * psi_{t+1}(C_{t+1}) * beta_{t+1}(C_{t+1})
-            backward[t] = self.Gamma @ (psi[t + 1] * backward[t + 1])
+            backward[t] = self.Gamma @ (local_evidence[t + 1] * backward[t + 1])
             backward[t] /= backward[t].sum()  # Normalize for numerical stability
         return backward
 

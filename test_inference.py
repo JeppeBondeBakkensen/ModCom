@@ -92,12 +92,12 @@ def brute_force_inference(X, HMM):
 
 
 if __name__ == "__main__":
-    T, n = 3, 2
+    T, n =3, 2
     params = {"alpha": 0.9, "beta": 0.2, "gamma": 0.1, "lam0": 1, "lam1": 5}
     HMM = HiddenMarkovModel(**params)
     _, _, X = HMM.simulate(T, n)
 
-    test_inference_calibration(HMM, T, n)
+    test_inference_calibration(HMM, 100, 10)
 
     # Get results from both methods
     post_fb, _ = HMM.inference(X)
