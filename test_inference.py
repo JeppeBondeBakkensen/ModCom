@@ -77,7 +77,6 @@ def brute_force_inference(X, HMM):
         path_probabilities.append(prob)
 
     path_probabilities = np.array(path_probabilities)
-
     total_evidence = np.sum(path_probabilities)
 
     # 4. Compute Marginal P(Ct = c | X)

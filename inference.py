@@ -52,6 +52,10 @@ class HiddenMarkovModel:
         """P(Z=1 | C=c) for c in {0,1,2}."""
         return np.array([1 - self.alpha, self.alpha, 0.5])
 
+    def p_z0_given_c(self):
+        """P(Z=0 | C=c) for c in {0,1,2}."""
+        return 1 - self.prob_z1_given_c
+
     @property
     def Gamma(self):
         """Transition matrix Γ[i, j] = P(C_{t+1}=j | C_t=i)
@@ -140,7 +144,7 @@ class HiddenMarkovModel:
         posterior_c /= posterior_c.sum(axis=1, keepdims=True)
 
         # P(Z_{t,i} = 1 | X)
-        posterior_z = self._posterior_Z(X, posterior_c)
+        posterior_z = self._posterior_Z(X, psi, forward, backward)
 
         return posterior_c, posterior_z
 
@@ -195,21 +199,41 @@ class HiddenMarkovModel:
             backward[t] /= backward[t].sum()  # Normalize for numerical stability
         return backward
 
-    def _posterior_Z(self, X, posterior_c):
+    def _posterior_Z(self, X, psi, forward, backward):
         T, n = X.shape
         posterior_z = np.zeros((T, n))
 
+        p_z1_given_c = self.prob_z1_given_c
+        p_z0_given_c = 1 - p_z1_given_c
+
         for t in range(T):
-            # Probability of observed spikes given Z=1 and Z=0
-            prob_x_z0 = poisson.pmf(X[t], self.lam0)
-            prob_x_z1 = poisson.pmf(X[t], self.lam1)
+            # Probabilities of observed spikes for all neurons at time t
+            prob_z1 = poisson.pmf(X[t], self.lam1)  # shape (n,)
+            prob_z0 = poisson.pmf(X[t], self.lam0)  # shape (n,)
 
-            for c in range(3):
-                # Local probability P(Z_{t,i}=1 | X_{t,i}, C_t=c)
-                num = prob_x_z1 * self.prob_z1_given_c[c]
-                den = (prob_x_z1 * self.prob_z1_given_c[c]) + (prob_x_z0 * (1 - self.prob_z1_given_c[c]))
-                p_z_given_x_c = num / den
+            if t == 0:
+                past_msg = np.array([0.0, 0.0, 1.0])
+            else:
+                # Message from the past without local evidence at time t
+                past_msg = forward[t - 1] @ self.Gamma
 
-                # Marginalize over the posterior of C_t
-                posterior_z[t] += p_z_given_x_c * posterior_c[t, c]
+            # Message arriving at C_t from above/below except the selected Z_{t,i}
+            msg_spine = past_msg * backward[t]
+
+            for i in range(n):
+                # Message from C_t to Z_{t,i}
+                m_c_to_zi = prob_z1[i] * p_z1_given_c + prob_z0[i] * p_z0_given_c
+
+                # Remove neuron i's contribution from the full local evidence
+                msg_down = msg_spine * (psi[t] / m_c_to_zi)
+
+                # Normalize for numerical stability
+                msg_down /= msg_down.sum()
+
+                # Belief for Z_{t,i}=1 and Z_{t,i}=0
+                term1 = np.sum(prob_z1[i] * p_z1_given_c * msg_down)
+                term0 = np.sum(prob_z0[i] * p_z0_given_c * msg_down)
+
+                posterior_z[t, i] = term1 / (term1 + term0)
+
         return posterior_z
