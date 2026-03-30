@@ -1,20 +1,9 @@
-"""Hidden Markov Model with the 2-TBN structure:
-
-    C_1 → C_2 → ... → C_T           (hidden Markov chain, 3 states)
-     |     |            |
-    Z_t   Z_t          Z_t          (attention variables, per neuron)
-     |     |            |
-    X_t   X_t          X_t          (observed spike counts, Poisson)
-
-where Z_{t,1}, ..., Z_{t,n} are conditionally independent given C_t.
-"""
-
 import numpy as np
 from scipy.stats import poisson
 
 
 class HiddenMarkovModel:
-    """Hidden Markov Model of Visual Attention (Figure 2, project description).
+    """Hidden Markov Model
 
     Parameters
     ----------
@@ -38,6 +27,7 @@ class HiddenMarkovModel:
     # ──────────────────────────────────────────────────────────────────
     @staticmethod
     def _validate(alpha, beta, gamma, lam0, lam1):
+        """Validation parameters given in the project"""
         if not (0 < beta < 1):
             raise ValueError(f"Beta must be between 0 and 1: Your input: {beta}")
         if not (0 < gamma < 1):
@@ -141,7 +131,7 @@ class HiddenMarkovModel:
 
         # P(C_t = c | X) ∝ forward_t(c) * backward_t(c)
         posterior_c = forward * backward
-        posterior_c /= posterior_c.sum(axis=1, keepdims=True)
+        posterior_c /= posterior_c.sum(axis=1, keepdims=True)  # Normalize
 
         # P(Z_{t,i} = 1 | X)
         posterior_z = self._posterior_Z(X, local_evidence, forward, backward)

@@ -1,0 +1,8 @@
+# Core dependencies for the Python scripts in this repository.
+numpy
+pandas
+scipy
+
+# Notebook and plotting dependencies.
+matplotlib
+scikit-learn

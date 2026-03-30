@@ -5,7 +5,7 @@ import numpy as np
 from inference import HiddenMarkovModel
 
 
-def test_inference_calibration(HMM, T, n, num_trials=1000):
+def test_empirical(HMM, T, n, num_trials=1000):
     # Storage for residuals (Indicator - Probability)
     # We track all 3 states for C and the attention for Z
     diffs_c = []
@@ -92,18 +92,19 @@ def brute_force_inference(X, HMM):
 
 
 if __name__ == "__main__":
-    T, n =3, 2
+    # Initialize the HMM
+    T, n = 3, 2
     params = {"alpha": 0.9, "beta": 0.2, "gamma": 0.1, "lam0": 1, "lam1": 5}
     HMM = HiddenMarkovModel(**params)
     _, _, X = HMM.simulate(T, n)
 
-    test_inference_calibration(HMM, 100, 10)
+    # Test empirical
+    test_empirical(HMM, 100, 10)
 
-    # Get results from both methods
+    # Test brute-force
     post_fb, _ = HMM.inference(X)
     post_bf = brute_force_inference(X, HMM)
 
-    # Compare
     is_correct = np.allclose(post_fb, post_bf)
     print(f"Brute Force Match: {is_correct}")
     if not is_correct:

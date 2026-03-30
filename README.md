@@ -1,73 +1,40 @@
-# Hidden Markov Model of Visual Attention
+# Hidden Markov Model: ModCom project
 
 This project implements a Hidden Markov Model (HMM) for visual attention as part of the _Models for Complex Systems_ exam project.
-
----
 
 ## Files
 
 - `inference.py` – main HMM implementation
 - `test_inference.py` – tests and validation of the inference method
-- `del1.ipynb`, `del2.ipynb` – notebook work for the project
-
----
+- `visuals.ipynb` - All visuals and logistic regression
+- `learning_of_the_parameters.py` - Part 3
+- `utils.py` - utils functions created throughout the project
 
 ## Requirements
 
 Install the required Python packages before running the code:
+with the command:
 
-### Standard library
+```python
+pip install -r requirements.txt
+```
 
-- `itertools`
-- `math`
-- `os`
+### Core dependencies for the Python scripts in this repository
 
-### External packages
+- numpy
+- pandas
+- scipy
 
-- `matplotlib`
-- `numpy`
-- `pandas`
-- `scipy`
-- `scikit-learn`
+### Notebook and plotting dependencies
 
----
+- matplotlib
+- scikit-learn
 
 ## Usage
 
-Run the test script with:
-
-```bash
-python test_inference.py
-```
-
-Example:
-
-```python
-from inference import HiddenMarkovModel
-
-hmm = HiddenMarkovModel(
-    alpha=0.9,
-    beta=0.2,
-    gamma=0.1,
-    lam0=1,
-    lam1=5,
-)
-
-C, Z, X = hmm.simulate(T=100, n=10)
-posterior_c, posterior_z = hmm.inference(X)
-```
-
----
-
-## Project focus
-
-The repository focuses on:
-
-1. simulation from the HMM
-2. inference of hidden states
-3. testing and validation of the inference algorithm
-
----
+- To run part 3 go run _learning_of_the_parameters.py_
+- To run inference test run _test_inference_
+- To run visual and logistic regression run the notebook _visuals_
 
 ## Authors
 
